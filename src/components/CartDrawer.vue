@@ -35,7 +35,7 @@
             <div class="divider"></div>
             <div class="price-row total"><span>Total</span><span>₱{{ cart.total.toFixed(2) }}</span></div>
             <router-link to="/checkout" class="btn btn-primary checkout-btn" @click="cart.toggleCart">
-              Proceed to Checkout →
+              Proceed to Checkout
             </router-link>
           </div>
         </div>

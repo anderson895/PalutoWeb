@@ -34,7 +34,7 @@
       </form>
 
       <div class="auth-footer">
-        Don't have an account? <router-link to="/register">Create one →</router-link>
+        Don't have an account? <router-link to="/register">Create one</router-link>
       </div>
     </div>
   </div>

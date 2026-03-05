@@ -65,7 +65,7 @@
             <option value="cancelled">✕ Cancelled</option>
           </select>
           <router-link to="/admin/orders" class="btn btn-outline" style="font-size:13px;padding:8px 14px;">
-            Full Admin View →
+            Full Admin View
           </router-link>
         </div>
       </div>
@@ -75,7 +75,7 @@
       <div class="empty-icon">{{ viewMode === 'all' ? '📋' : '🛒' }}</div>
       <h3>{{ viewMode === 'all' ? 'No orders in the system yet' : 'You have no orders yet' }}</h3>
       <p>{{ viewMode === 'all' ? 'Orders will appear here once customers start ordering.' : 'Start ordering delicious Filipino food!' }}</p>
-      <router-link v-if="viewMode === 'my'" to="/menu" class="btn btn-primary">Browse Menu →</router-link>
+      <router-link v-if="viewMode === 'my'" to="/menu" class="btn btn-primary">Browse Menu</router-link>
     </div>
   </div>
 </template>

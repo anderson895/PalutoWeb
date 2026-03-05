@@ -58,7 +58,7 @@
         <div class="price-row total"><span>Total</span><span>₱{{ cart.total.toFixed(2) }}</span></div>
         <button class="btn btn-primary place-order-btn" @click="placeOrder" :disabled="placing || !cart.items.length">
           <div class="spinner" v-if="placing" style="width:18px;height:18px;border-width:2px"></div>
-          {{ placing ? 'Placing Order...' : 'Place Order →' }}
+          {{ placing ? 'Placing Order...' : 'Place Order' }}
         </button>
         <p class="order-note">🔒 Your order is secure and encrypted</p>
       </div>
