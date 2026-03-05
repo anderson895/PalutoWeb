@@ -1,6 +1,8 @@
 <template>
   <div class="checkout-page container">
-    <button class="btn btn-ghost back-btn" @click="$router.back()">← Back to Cart</button>
+    <button class="btn btn-ghost back-btn" @click="$router.back()">
+      <ArrowLeftIcon class="btn-icon" /> Back to Cart
+    </button>
     <h1>Checkout</h1>
     <div class="checkout-layout">
       <!-- Order form -->
@@ -31,7 +33,7 @@
           <div class="payment-options">
             <label v-for="opt in paymentOptions" :key="opt.value" class="payment-option" :class="{ active: form.payment === opt.value }">
               <input type="radio" v-model="form.payment" :value="opt.value" hidden />
-              <span class="pay-icon">{{ opt.icon }}</span>
+              <component :is="opt.icon" class="pay-icon" />
               <div><div class="pay-name">{{ opt.name }}</div><div class="pay-desc">{{ opt.desc }}</div></div>
             </label>
           </div>
@@ -53,18 +55,27 @@
         </div>
         <div class="divider"></div>
         <div class="price-row"><span>Subtotal</span><span>₱{{ cart.subtotal.toFixed(2) }}</span></div>
-        <div class="price-row"><span>Delivery Fee</span><span>{{ cart.deliveryFee === 0 ? '🎉 FREE' : '₱' + cart.deliveryFee }}</span></div>
+        <div class="price-row">
+          <span>Delivery Fee</span>
+          <span class="free-delivery" v-if="cart.deliveryFee === 0">
+            <SparklesIcon class="inline-icon" /> FREE
+          </span>
+          <span v-else>₱{{ cart.deliveryFee }}</span>
+        </div>
         <div class="divider"></div>
         <div class="price-row total"><span>Total</span><span>₱{{ cart.total.toFixed(2) }}</span></div>
         <button class="btn btn-primary place-order-btn" @click="placeOrder" :disabled="placing || !cart.items.length">
           <div class="spinner" v-if="placing" style="width:18px;height:18px;border-width:2px"></div>
           {{ placing ? 'Placing Order...' : 'Place Order' }}
         </button>
-        <p class="order-note">🔒 Your order is secure and encrypted</p>
+        <p class="order-note">
+          <LockClosedIcon class="inline-icon" /> Your order is secure and encrypted
+        </p>
       </div>
     </div>
   </div>
 </template>
+
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -72,6 +83,14 @@ import { useCartStore } from '@/stores/cart'
 import { useAuthStore } from '@/stores/auth'
 import { useOrderStore } from '@/stores/orders'
 import { useToastStore } from '@/stores/toast'
+import {
+  ArrowLeftIcon,
+  BanknotesIcon,
+  DevicePhoneMobileIcon,
+  BuildingLibraryIcon,
+  LockClosedIcon,
+  SparklesIcon,
+} from '@heroicons/vue/24/outline'
 
 const router = useRouter()
 const cart = useCartStore()
@@ -89,9 +108,9 @@ const form = ref({
 })
 
 const paymentOptions = [
-  { value: 'cod', icon: '💵', name: 'Cash on Delivery', desc: 'Pay when your order arrives' },
-  { value: 'gcash', icon: '📱', name: 'GCash', desc: 'Pay via GCash mobile wallet' },
-  { value: 'bank', icon: '🏦', name: 'Bank Transfer', desc: 'Online bank transfer' },
+  { value: 'cod',   icon: BanknotesIcon,         name: 'Cash on Delivery', desc: 'Pay when your order arrives' },
+  { value: 'gcash', icon: DevicePhoneMobileIcon,  name: 'GCash',            desc: 'Pay via GCash mobile wallet' },
+  { value: 'bank',  icon: BuildingLibraryIcon,    name: 'Bank Transfer',    desc: 'Online bank transfer' },
 ]
 
 const placeOrder = async () => {
@@ -114,16 +133,18 @@ const placeOrder = async () => {
       total: cart.total,
     })
     cart.clearCart()
-    toast.success('Order placed successfully! 🎉')
+    toast.success('Order placed successfully!')
     router.push('/orders')
   } catch (e) {
     toast.error('Failed to place order. Please try again.')
   } finally { placing.value = false }
 }
 </script>
+
 <style scoped>
 .checkout-page { padding: 32px 24px 80px; }
-.back-btn { margin-bottom: 16px; }
+.back-btn { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 16px; }
+.btn-icon { width: 16px; height: 16px; }
 h1 { font-family: 'Playfair Display', serif; font-size: 36px; font-weight: 900; margin-bottom: 32px; }
 .checkout-layout { display: grid; grid-template-columns: 1fr 400px; gap: 28px; align-items: start; }
 .checkout-section { padding: 24px; margin-bottom: 20px; }
@@ -134,7 +155,8 @@ h1 { font-family: 'Playfair Display', serif; font-size: 36px; font-weight: 900; 
 .payment-option { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; transition: all 0.2s; }
 .payment-option.active { border-color: var(--accent); background: rgba(232,70,42,0.06); }
 .payment-option:hover { border-color: rgba(232,70,42,0.3); }
-.pay-icon { font-size: 24px; }
+.pay-icon { width: 24px; height: 24px; flex-shrink: 0; color: var(--text2); }
+.payment-option.active .pay-icon { color: var(--accent); }
 .pay-name { font-size: 14px; font-weight: 600; }
 .pay-desc { font-size: 12px; color: var(--text2); margin-top: 2px; }
 .order-summary { padding: 24px; }
@@ -148,8 +170,10 @@ h1 { font-family: 'Playfair Display', serif; font-size: 36px; font-weight: 900; 
 .summary-item-price { font-size: 14px; font-weight: 600; }
 .price-row { display: flex; justify-content: space-between; font-size: 14px; color: var(--text2); padding: 6px 0; }
 .price-row.total { font-size: 20px; font-weight: 700; color: var(--text); padding: 12px 0 4px; }
+.free-delivery { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); font-weight: 600; }
+.inline-icon { width: 13px; height: 13px; flex-shrink: 0; }
 .place-order-btn { width: 100%; padding: 16px; font-size: 16px; margin-top: 16px; }
-.order-note { text-align: center; font-size: 12px; color: var(--text2); margin-top: 12px; }
+.order-note { display: flex; align-items: center; justify-content: center; gap: 5px; text-align: center; font-size: 12px; color: var(--text2); margin-top: 12px; }
 @media (max-width: 900px) {
   .checkout-layout { grid-template-columns: 1fr; }
   .form-grid { grid-template-columns: 1fr; }

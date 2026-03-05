@@ -1,9 +1,6 @@
 <template>
   <div class="auth-page">
     <div class="auth-card card">
-      <div class="auth-logo">
-        <FireIcon class="logo-icon" /> PALUTO
-      </div>
       <h1>Create Account</h1>
       <p class="auth-sub">Join PALUTO and start ordering amazing Filipino food</p>
 
@@ -159,11 +156,11 @@ const handleGoogle = async () => {
 .btn-google:disabled { opacity: 0.6; cursor: not-allowed; }
 .google-icon { width: 18px; height: 18px; flex-shrink: 0; }
 
-/* Divider */
+
 .divider { display: flex; align-items: center; gap: 12px; margin: 20px 0; color: var(--text2); font-size: 12px; }
 .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
-/* Inputs with leading icon */
+
 .input-wrap { position: relative; display: flex; align-items: center; }
 .input-icon { position: absolute; left: 12px; width: 15px; height: 15px; color: var(--text2); pointer-events: none; }
 .input-wrap input { width: 100%; padding-left: 36px; }
