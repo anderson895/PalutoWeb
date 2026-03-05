@@ -41,7 +41,7 @@ const handleLogin = async () => {
   try {
     await auth.login(email.value, password.value)
     toast.success('Welcome back!')
-    router.push('/')
+    router.push(auth.isAdmin ? '/admin' : '/')
   } catch (e) {
     error.value = e.code === 'auth/invalid-credential' ? 'Invalid email or password' : e.message
   } finally { loading.value = false }
