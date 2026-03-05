@@ -1,7 +1,6 @@
 <template>
   <div class="auth-page">
     <div class="auth-card card">
-      <div class="auth-logo"><span>🍳</span> PALUTO</div>
       <h1>Welcome Back</h1>
       <p class="auth-sub">Sign in to your account to continue</p>
       <form @submit.prevent="handleLogin" class="auth-form">

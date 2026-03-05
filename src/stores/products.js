@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import {
-  collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, orderBy
+  collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy
 } from 'firebase/firestore'
 import { db } from '@/firebase'
 
@@ -49,5 +49,20 @@ export const useProductStore = defineStore('products', () => {
     await fetchCategories()
   }
 
-  return { products, categories, loading, fetchProducts, fetchCategories, addProduct, updateProduct, deleteProduct, addCategory }
+  const updateCategory = async (id, name, emoji) => {
+    await updateDoc(doc(db, 'categories', id), { name, emoji })
+    await fetchCategories()
+  }
+
+  const deleteCategory = async (id) => {
+    await deleteDoc(doc(db, 'categories', id))
+    categories.value = categories.value.filter(c => c.id !== id)
+  }
+
+  return {
+    products, categories, loading,
+    fetchProducts, fetchCategories,
+    addProduct, updateProduct, deleteProduct,
+    addCategory, updateCategory, deleteCategory,
+  }
 })
