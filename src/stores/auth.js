@@ -5,7 +5,9 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  updateProfile
+  updateProfile,
+  GoogleAuthProvider,   // added
+  signInWithPopup,      // added
 } from 'firebase/auth'
 import { doc, setDoc, getDoc } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
@@ -55,11 +57,41 @@ export const useAuthStore = defineStore('auth', () => {
     return cred.user
   }
 
+  // --- Google Sign-In (added) ---
+  const loginWithGoogle = async () => {
+    const provider = new GoogleAuthProvider()
+    const cred = await signInWithPopup(auth, provider)
+    const u = cred.user
+
+    const userRef = doc(db, 'users', u.uid)
+    const snap = await getDoc(userRef)
+
+    if (!snap.exists()) {
+      // First time — create Firestore profile
+      const userData = {
+        uid:       u.uid,
+        name:      u.displayName || '',
+        email:     u.email || '',
+        phone:     u.phoneNumber || '',
+        photoURL:  u.photoURL || '',
+        role:      'customer',
+        createdAt: new Date().toISOString(),
+        addresses: []
+      }
+      await setDoc(userRef, userData)
+      profile.value = userData
+    } else {
+      profile.value = snap.data()
+    }
+
+    return u
+  }
+
   const logout = async () => {
     await signOut(auth)
     user.value = null
     profile.value = null
   }
 
-  return { user, profile, loading, isLoggedIn, isAdmin, init, register, login, logout }
+  return { user, profile, loading, isLoggedIn, isAdmin, init, register, login, loginWithGoogle, logout }
 })
