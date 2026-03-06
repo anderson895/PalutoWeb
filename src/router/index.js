@@ -1,6 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
+// Create a reactive loading state
+import { ref } from 'vue'
+export const isRouteLoading = ref(false)
+
 const routes = [
   { path: '/', name: 'Home', component: () => import('@/views/HomeView.vue') },
   { path: '/menu', name: 'Menu', component: () => import('@/views/MenuView.vue') },
@@ -31,6 +35,8 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to, from, next) => {
+  isRouteLoading.value = true  // ← start spinner
+
   const auth = useAuthStore()
   if (auth.loading) {
     await new Promise(resolve => {
@@ -39,9 +45,19 @@ router.beforeEach(async (to, from, next) => {
       })
     })
   }
-  if (to.meta.requiresAuth && !auth.isLoggedIn) return next('/login')
-  if (to.meta.requiresAdmin && !auth.isAdmin) return next('/')
+  if (to.meta.requiresAuth && !auth.isLoggedIn) {
+    isRouteLoading.value = false
+    return next('/login')
+  }
+  if (to.meta.requiresAdmin && !auth.isAdmin) {
+    isRouteLoading.value = false
+    return next('/')
+  }
   next()
+})
+
+router.afterEach(() => {
+  isRouteLoading.value = false  // ← stop spinner
 })
 
 export default router
