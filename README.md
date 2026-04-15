@@ -1,4 +1,4 @@
-# 🍳 PALUTO APP - Online Food Ordering System
+# PALUTO APP - Online Food Ordering System
 
 A full-featured online food ordering system built with Vue.js 3, Firebase, and Cloudinary.
 
@@ -11,19 +11,19 @@ A full-featured online food ordering system built with Vue.js 3, Firebase, and C
 ## Features
 
 ### Customer
-- 🏠 Beautiful landing page with featured dishes
-- 🍽️ Menu browsing with category filters & search
-- 🛒 Shopping cart with drawer UI
-- 🔐 Authentication (Register / Login)
-- 💳 Checkout with delivery details & payment method
-- 📋 Order history with real-time status tracking
-- 👤 Profile management
+- Beautiful landing page with featured dishes
+- Menu browsing with category filters & search
+- Shopping cart with drawer UI
+- Authentication (Register / Login)
+- Checkout with delivery details & payment method
+- Order history with real-time status tracking
+- Profile management
 
 ### Admin Panel (`/admin`)
-- 📊 Dashboard with real-time stats & revenue
-- 📋 Orders management with live updates (Firestore subscription)
-- 🍽️ Product CRUD with Cloudinary image upload
-- 📂 Category management
+- Dashboard with real-time stats & revenue
+- Orders management with live updates (Firestore subscription)
+- Product CRUD with Cloudinary image upload
+- Category management
 
 ## Setup Instructions
 
