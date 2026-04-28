@@ -71,13 +71,15 @@ const handleLogin = async () => {
 const handleGoogle = async () => {
   error.value = ''; loading.value = 'google'
   try {
-    await auth.loginWithGoogle()
+    const u = await auth.loginWithGoogle()
+    if (!u) return // redirected — page will reload
     toast.success('Welcome back!')
     router.push(auth.isAdmin ? '/admin' : '/')
   } catch (e) {
-    if (e.code !== 'auth/popup-closed-by-user') {
-      error.value = e.message
-    }
+    if (e.code === 'auth/popup-closed-by-user') return
+    error.value = e.code === 'auth/popup-blocked'
+      ? 'Popup was blocked. Please allow popups for this site or try again.'
+      : e.message
   } finally { loading.value = false }
 }
 </script>

@@ -3,7 +3,11 @@
     <div class="toast-container">
       <transition-group name="toast">
         <div v-for="t in toasts" :key="t.id" class="toast" :class="`toast-${t.type}`">
-          <span class="toast-icon">{{ t.type === 'success' ? '✓' : t.type === 'error' ? '✕' : 'ℹ' }}</span>
+          <span class="toast-icon">
+            <CheckIcon v-if="t.type === 'success'" />
+            <XMarkIcon v-else-if="t.type === 'error'" />
+            <InformationCircleIcon v-else />
+          </span>
           {{ t.message }}
         </div>
       </transition-group>
@@ -14,6 +18,7 @@
 <script setup>
 import { useToastStore } from '@/stores/toast'
 import { storeToRefs } from 'pinia'
+import { CheckIcon, XMarkIcon, InformationCircleIcon } from '@heroicons/vue/24/solid'
 const { toasts } = storeToRefs(useToastStore())
 </script>
 
@@ -69,6 +74,10 @@ const { toasts } = storeToRefs(useToastStore())
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+.toast-icon :deep(svg) {
+  width: 14px;
+  height: 14px;
 }
 
 .toast-success .toast-icon { background: #2ecc71; color: #0a2e1a; }

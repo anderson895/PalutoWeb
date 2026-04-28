@@ -6,8 +6,10 @@ import {
   signOut,
   onAuthStateChanged,
   updateProfile,
-  GoogleAuthProvider,   // added
-  signInWithPopup,      // added
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
 } from 'firebase/auth'
 import { doc, setDoc, getDoc } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
@@ -20,12 +22,30 @@ export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = computed(() => !!user.value)
   const isAdmin = computed(() => profile.value?.role === 'admin')
 
+  const ensureProfile = async (u) => {
+    const userRef = doc(db, 'users', u.uid)
+    const snap = await getDoc(userRef)
+    if (snap.exists()) return snap.data()
+    const userData = {
+      uid:       u.uid,
+      name:      u.displayName || '',
+      email:     u.email || '',
+      phone:     u.phoneNumber || '',
+      photoURL:  u.photoURL || '',
+      role:      'customer',
+      createdAt: new Date().toISOString(),
+      addresses: []
+    }
+    await setDoc(userRef, userData)
+    return userData
+  }
+
   const init = () => {
+    getRedirectResult(auth).catch(() => {})
     onAuthStateChanged(auth, async (u) => {
       user.value = u
       if (u) {
-        const snap = await getDoc(doc(db, 'users', u.uid))
-        profile.value = snap.exists() ? snap.data() : null
+        profile.value = await ensureProfile(u)
       } else {
         profile.value = null
       }
@@ -57,34 +77,23 @@ export const useAuthStore = defineStore('auth', () => {
     return cred.user
   }
 
-  // --- Google Sign-In (added) ---
   const loginWithGoogle = async () => {
     const provider = new GoogleAuthProvider()
-    const cred = await signInWithPopup(auth, provider)
-    const u = cred.user
-
-    const userRef = doc(db, 'users', u.uid)
-    const snap = await getDoc(userRef)
-
-    if (!snap.exists()) {
-      // First time — create Firestore profile
-      const userData = {
-        uid:       u.uid,
-        name:      u.displayName || '',
-        email:     u.email || '',
-        phone:     u.phoneNumber || '',
-        photoURL:  u.photoURL || '',
-        role:      'customer',
-        createdAt: new Date().toISOString(),
-        addresses: []
+    try {
+      const cred = await signInWithPopup(auth, provider)
+      profile.value = await ensureProfile(cred.user)
+      return cred.user
+    } catch (e) {
+      if (
+        e.code === 'auth/popup-blocked' ||
+        e.code === 'auth/cancelled-popup-request' ||
+        e.code === 'auth/operation-not-supported-in-this-environment'
+      ) {
+        await signInWithRedirect(auth, provider)
+        return null
       }
-      await setDoc(userRef, userData)
-      profile.value = userData
-    } else {
-      profile.value = snap.data()
+      throw e
     }
-
-    return u
   }
 
   const logout = async () => {

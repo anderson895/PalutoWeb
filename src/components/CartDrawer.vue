@@ -5,7 +5,7 @@
         <div class="drawer">
           <div class="drawer-header">
             <h2>Your Order</h2>
-            <button class="drawer-close" @click="cart.toggleCart">✕</button>
+            <button class="drawer-close" @click="cart.toggleCart"><XMarkIcon class="icon-close" /></button>
           </div>
 
           <div class="drawer-body" v-if="cart.items.length">
@@ -20,11 +20,11 @@
                 <span>{{ item.qty }}</span>
                 <button @click="cart.updateQty(item.id, item.qty + 1)">+</button>
               </div>
-              <button class="cart-item-remove" @click="cart.removeItem(item.id)">🗑</button>
+              <button class="cart-item-remove" @click="cart.removeItem(item.id)"><TrashIcon class="icon-remove" /></button>
             </div>
           </div>
           <div class="drawer-empty" v-else>
-            <div class="empty-icon">🛒</div>
+            <div class="empty-icon"><ShoppingCartIcon /></div>
             <p>Your cart is empty</p>
             <button class="btn btn-primary" @click="cart.toggleCart; $router.push('/menu')">Browse Menu</button>
           </div>
@@ -45,6 +45,7 @@
 </template>
 <script setup>
 import { useCartStore } from '@/stores/cart'
+import { XMarkIcon, TrashIcon, ShoppingCartIcon } from '@heroicons/vue/24/outline'
 const cart = useCartStore()
 </script>
 <style scoped>
@@ -56,7 +57,10 @@ const cart = useCartStore()
 .drawer-close:hover { color: var(--text); border-color: var(--text2); }
 .drawer-body { flex: 1; overflow-y: auto; padding: 16px 24px; display: flex; flex-direction: column; gap: 12px; }
 .drawer-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 40px; text-align: center; }
-.empty-icon { font-size: 48px; opacity: 0.4; }
+.empty-icon { opacity: 0.4; color: var(--text2); }
+.empty-icon :deep(svg) { width: 48px; height: 48px; }
+.icon-close { width: 14px; height: 14px; }
+.icon-remove { width: 16px; height: 16px; }
 .drawer-empty p { color: var(--text2); font-size: 15px; }
 .cart-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
 .cart-item img { width: 56px; height: 56px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }

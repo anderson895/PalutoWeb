@@ -68,7 +68,7 @@
         Made with
         <HeartIcon class="heart-icon" />
         in the Philippines
-        <span class="ph-flag">🇵🇭</span>
+        <FlagIcon class="ph-flag" />
       </span>
     </div>
   </footer>
@@ -88,6 +88,7 @@ import {
   GlobeAltIcon,
   CameraIcon,
   LinkIcon,
+  FlagIcon,
 } from '@heroicons/vue/24/outline'
 </script>
 
@@ -183,7 +184,7 @@ import {
   color: var(--accent);
   fill: var(--accent);
 }
-.ph-flag { font-size: 14px; }
+.ph-flag { width: 14px; height: 14px; color: var(--accent2); }
 
 @media (max-width: 768px) {
   .footer-inner { grid-template-columns: 1fr; gap: 36px; }
