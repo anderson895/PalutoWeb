@@ -22,6 +22,37 @@
               <label>Delivery Address</label>
               <input v-model="form.address" placeholder="Street, Barangay, City" required />
             </div>
+
+            <div class="form-group full">
+              <label>Pin your location on the map</label>
+              <div class="loc-actions">
+                <button type="button" class="btn btn-outline loc-btn" @click="useMyLocation" :disabled="locating">
+                  <div class="spinner" v-if="locating" style="width:14px;height:14px;border-width:2px" />
+                  <MapPinIcon v-else class="btn-icon" />
+                  {{ locating ? 'Locating...' : 'Use my current location' }}
+                </button>
+                <span v-if="form.deliveryLocation" class="loc-pinned">
+                  <CheckCircleIcon class="inline-icon" /> Location pinned
+                </span>
+              </div>
+              <DeliveryMap
+                ref="mapRef"
+                height="280px"
+                :picker="true"
+                :store-location="settingsStore.store"
+                :delivery-location="null"
+                :initial-center="settingsStore.store"
+                :initial-zoom="14"
+                :auto-fit="false"
+                @ready="onMapReady"
+                @pick="onPick"
+              />
+              <p class="loc-hint">
+                <InformationCircleIcon class="inline-icon" />
+                Tap the map to drop a pin, or drag the pin to fine-tune. The pin shows the driver exactly where to deliver.
+              </p>
+            </div>
+
             <div class="form-group full">
               <label>Special Instructions (optional)</label>
               <textarea v-model="form.notes" placeholder="Allergy info, extra spicy, no onions..." rows="3"></textarea>
@@ -145,7 +176,9 @@ import { useCartStore } from '@/stores/cart'
 import { useAuthStore } from '@/stores/auth'
 import { useOrderStore } from '@/stores/orders'
 import { usePaymentStore } from '@/stores/payments'
+import { useSettingsStore } from '@/stores/settings'
 import { useToastStore } from '@/stores/toast'
+import DeliveryMap from '@/components/DeliveryMap.vue'
 import {
   ArrowLeftIcon,
   BanknotesIcon,
@@ -155,6 +188,8 @@ import {
   SparklesIcon,
   InformationCircleIcon,
   ClipboardDocumentIcon,
+  MapPinIcon,
+  CheckCircleIcon,
 } from '@heroicons/vue/24/outline'
 
 const router = useRouter()
@@ -162,8 +197,11 @@ const cart = useCartStore()
 const auth = useAuthStore()
 const orderStore = useOrderStore()
 const paymentStore = usePaymentStore()
+const settingsStore = useSettingsStore()
 const toast = useToastStore()
 const placing = ref(false)
+const locating = ref(false)
+const mapRef = ref(null)
 
 const form = ref({
   name: auth.profile?.name || '',
@@ -171,7 +209,41 @@ const form = ref({
   address: '',
   notes: '',
   payment: '',
+  deliveryLocation: null,
 })
+
+const onMapReady = () => {
+  if (mapRef.value && form.value.deliveryLocation) {
+    mapRef.value.placePicker(form.value.deliveryLocation.lat, form.value.deliveryLocation.lng)
+  }
+}
+
+const onPick = ({ lat, lng }) => {
+  form.value.deliveryLocation = { lat: +lat.toFixed(6), lng: +lng.toFixed(6) }
+}
+
+const useMyLocation = () => {
+  if (!navigator.geolocation) {
+    toast.error('Geolocation not supported by this browser')
+    return
+  }
+  locating.value = true
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude, longitude } = pos.coords
+      form.value.deliveryLocation = { lat: +latitude.toFixed(6), lng: +longitude.toFixed(6) }
+      mapRef.value?.placePicker(latitude, longitude)
+      mapRef.value?.setView(latitude, longitude, 16)
+      locating.value = false
+      toast.success('Pinned your current location')
+    },
+    (err) => {
+      locating.value = false
+      toast.error(err.message || 'Could not get location')
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  )
+}
 
 const paymentOptions = computed(() => {
   const m = paymentStore.methods
@@ -255,6 +327,9 @@ const placeOrder = async () => {
   if (!form.value.payment) {
     toast.error('Please select a payment method'); return
   }
+  if (!form.value.deliveryLocation) {
+    toast.error('Please pin your delivery location on the map'); return
+  }
   placing.value = true
   try {
     const orderId = await orderStore.placeOrder({
@@ -269,16 +344,23 @@ const placeOrder = async () => {
       subtotal: cart.subtotal,
       deliveryFee: cart.deliveryFee,
       total: cart.total,
+      deliveryLocation: form.value.deliveryLocation,
+      storeLocation: settingsStore.store
+        ? { lat: settingsStore.store.lat, lng: settingsStore.store.lng, name: settingsStore.store.name }
+        : null,
     })
     cart.clearCart()
     toast.success('Order placed successfully!')
-    router.push('/orders')
+    router.push(`/track/${orderId}`)
   } catch (e) {
     toast.error('Failed to place order. Please try again.')
   } finally { placing.value = false }
 }
 
-onMounted(() => paymentStore.fetchMethods())
+onMounted(() => {
+  paymentStore.fetchMethods()
+  settingsStore.fetchStore()
+})
 </script>
 
 <style scoped>
@@ -291,6 +373,24 @@ h1 { font-family: 'Playfair Display', serif; font-size: 36px; font-weight: 900; 
 .checkout-section h3 { font-size: 17px; font-weight: 700; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .form-group.full { grid-column: 1 / -1; }
+
+.loc-actions {
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.loc-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; font-size: 13px;
+}
+.loc-pinned {
+  display: inline-flex; align-items: center; gap: 4px;
+  color: #2ecc71; font-size: 12px; font-weight: 600;
+}
+.loc-hint {
+  display: flex; align-items: flex-start; gap: 6px;
+  font-size: 12px; color: var(--text2);
+  margin-top: 8px; line-height: 1.5;
+}
 
 .payment-options { display: flex; flex-direction: column; gap: 10px; }
 .payment-option { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; transition: all 0.2s; }

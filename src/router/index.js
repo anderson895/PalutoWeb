@@ -25,8 +25,15 @@ const routes = [
       { path: 'orders', name: 'AdminOrders', component: () => import('@/views/admin/OrdersView.vue') },
       { path: 'categories', name: 'AdminCategories', component: () => import('@/views/admin/CategoriesView.vue') },
       { path: 'payments', name: 'AdminPayments', component: () => import('@/views/admin/PaymentsView.vue') },
+      { path: 'store', name: 'AdminStore', component: () => import('@/views/admin/StoreSettingsView.vue') },
     ]
-  }
+  },
+  {
+    path: '/track/:id',
+    name: 'TrackOrder',
+    component: () => import('@/views/TrackOrderView.vue'),
+    meta: { requiresAuth: true },
+  },
 ]
 
 const router = createRouter({

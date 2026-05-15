@@ -56,6 +56,16 @@
           <ChatBubbleLeftIcon class="meta-icon" /> {{ order.notes }}
         </div>
 
+        <div class="order-track-row" v-if="canTrack(order)">
+          <router-link :to="`/track/${order.id}`" class="btn btn-primary track-btn">
+            <MapIcon class="btn-icon" />
+            Track Order
+            <span v-if="order.driverLocation" class="live-pill">
+              <span class="live-dot-sm" /> LIVE
+            </span>
+          </router-link>
+        </div>
+
         <div class="order-admin-actions" v-if="auth.isAdmin && viewMode === 'all'">
           <div class="select-wrap">
             <AdjustmentsHorizontalIcon class="select-icon" />
@@ -106,6 +116,7 @@ import {
   AdjustmentsHorizontalIcon,
   ChevronDownIcon,
   ArrowTopRightOnSquareIcon,
+  MapIcon,
   SparklesIcon,
   // Status icons
   ClockIcon,
@@ -156,6 +167,9 @@ const STATUS_ICONS = {
   cancelled: NoSymbolIcon,
 }
 const statusIcon  = (s) => STATUS_ICONS[s] || ClockIcon
+
+const canTrack = (o) =>
+  !['delivered', 'cancelled'].includes(o.status)
 const statusLabel = (s) => ({
   pending:   'Pending',
   confirmed: 'Confirmed',
@@ -228,6 +242,31 @@ h1 { font-family: 'Playfair Display', serif; font-size: 36px; font-weight: 900; 
   display: flex; align-items: flex-start; gap: 6px;
   margin-top: 10px; font-size: 13px; color: var(--text2);
   font-style: italic; background: var(--bg3); padding: 8px 12px; border-radius: 8px;
+}
+
+/* Track button */
+.order-track-row {
+  margin-top: 12px; padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.track-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px; font-size: 13px;
+}
+.live-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: rgba(255,255,255,0.18);
+  padding: 2px 7px; border-radius: 100px;
+  font-size: 10px; font-weight: 800; letter-spacing: 0.08em;
+}
+.live-dot-sm {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #fff;
+  animation: live-pill-pulse 1.4s infinite;
+}
+@keyframes live-pill-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
 }
 
 /* Admin actions */

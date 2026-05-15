@@ -112,3 +112,5 @@ src/
 ├── firebase.js          # Firebase initialization
 └── cloudinary.js        # Cloudinary helpers
 ```
+
+

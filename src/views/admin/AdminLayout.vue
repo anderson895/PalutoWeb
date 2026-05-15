@@ -283,7 +283,7 @@ import {
   ChevronDoubleLeftIcon, ChevronDoubleRightIcon,
   Bars3Icon, ChevronDownIcon,
   MapPinIcon, CreditCardIcon, ChatBubbleLeftIcon,
-  BanknotesIcon,
+  BanknotesIcon, BuildingStorefrontIcon,
 } from '@heroicons/vue/24/outline'
 
 const route      = useRoute()
@@ -331,6 +331,7 @@ const navItems = computed(() => [
   { to: '/admin/products',   label: 'Products',    icon: ShoppingBagIcon,           badge: 0 },
   { to: '/admin/categories', label: 'Categories',  icon: FolderIcon,                badge: 0 },
   { to: '/admin/payments',   label: 'Payments',    icon: BanknotesIcon,             badge: 0 },
+  { to: '/admin/store',      label: 'Store',       icon: BuildingStorefrontIcon,    badge: 0 },
 ])
 
 const pageMap = {
@@ -339,6 +340,7 @@ const pageMap = {
   '/admin/products':   { title: 'Products Management', icon: ShoppingBagIcon },
   '/admin/categories': { title: 'Categories',          icon: FolderIcon },
   '/admin/payments':   { title: 'Payment Management',  icon: BanknotesIcon },
+  '/admin/store':      { title: 'Store Settings',       icon: BuildingStorefrontIcon },
 }
 const currentPageTitle = computed(() => pageMap[route.path]?.title || 'Admin')
 const currentPageIcon  = computed(() => pageMap[route.path]?.icon  || ChartBarIcon)

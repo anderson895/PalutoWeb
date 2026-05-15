@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import {
-  collection, addDoc, getDocs, updateDoc, doc, query, where, orderBy, onSnapshot
+  collection, addDoc, getDocs, updateDoc, doc, getDoc,
+  query, where, orderBy, onSnapshot
 } from 'firebase/firestore'
 import { db } from '@/firebase'
 
@@ -10,11 +11,14 @@ export const useOrderStore = defineStore('orders', () => {
   const myOrders = ref([])
   const loading = ref(false)
   let unsubscribe = null
+  const orderSubs = new Map()
 
   const placeOrder = async (orderData) => {
     const ref2 = await addDoc(collection(db, 'orders'), {
       ...orderData,
       status: 'pending',
+      driverLocation: null,
+      driverLocationUpdatedAt: null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     })
@@ -47,11 +51,33 @@ export const useOrderStore = defineStore('orders', () => {
     }
   }
 
+  const fetchOrderById = async (id) => {
+    const snap = await getDoc(doc(db, 'orders', id))
+    if (!snap.exists()) return null
+    return { id: snap.id, ...snap.data() }
+  }
+
   const subscribeToOrders = () => {
     const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'))
     unsubscribe = onSnapshot(q, (snap) => {
       orders.value = snap.docs.map(d => ({ id: d.id, ...d.data() }))
     })
+  }
+
+  const subscribeToOrder = (id, callback) => {
+    if (orderSubs.has(id)) {
+      orderSubs.get(id)()
+      orderSubs.delete(id)
+    }
+    const unsub = onSnapshot(doc(db, 'orders', id), (snap) => {
+      if (snap.exists()) callback({ id: snap.id, ...snap.data() })
+      else callback(null)
+    })
+    orderSubs.set(id, unsub)
+    return () => {
+      unsub()
+      orderSubs.delete(id)
+    }
   }
 
   const updateOrderStatus = async (id, status) => {
@@ -61,9 +87,38 @@ export const useOrderStore = defineStore('orders', () => {
     })
   }
 
-  const stopSubscription = () => {
-    if (unsubscribe) unsubscribe()
+  const updateDriverLocation = async (id, lat, lng) => {
+    await updateDoc(doc(db, 'orders', id), {
+      driverLocation: { lat, lng },
+      driverLocationUpdatedAt: new Date().toISOString(),
+    })
   }
 
-  return { orders, myOrders, loading, placeOrder, fetchMyOrders, fetchAllOrders, subscribeToOrders, updateOrderStatus, stopSubscription }
+  const updateDeliveryLocation = async (id, lat, lng) => {
+    await updateDoc(doc(db, 'orders', id), {
+      deliveryLocation: { lat, lng },
+      updatedAt: new Date().toISOString(),
+    })
+  }
+
+  const clearDriverLocation = async (id) => {
+    await updateDoc(doc(db, 'orders', id), {
+      driverLocation: null,
+      driverLocationUpdatedAt: null,
+    })
+  }
+
+  const stopSubscription = () => {
+    if (unsubscribe) unsubscribe()
+    orderSubs.forEach(unsub => unsub())
+    orderSubs.clear()
+  }
+
+  return {
+    orders, myOrders, loading,
+    placeOrder, fetchMyOrders, fetchAllOrders, fetchOrderById,
+    subscribeToOrders, subscribeToOrder,
+    updateOrderStatus, updateDriverLocation, updateDeliveryLocation, clearDriverLocation,
+    stopSubscription,
+  }
 })

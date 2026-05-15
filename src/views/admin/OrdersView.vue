@@ -67,32 +67,312 @@
           <ChatBubbleLeftIcon class="meta-icon" />
           {{ order.notes }}
         </div>
+
+        <!-- Live tracking control -->
+        <div class="track-row" v-if="canTrack(order)">
+          <button
+            class="map-btn"
+            @click="openMap(order)"
+          >
+            <MapIcon class="track-icon" />
+            View Map
+            <span v-if="order.driverLocation" class="live-pill-sm">
+              <span class="live-dot-sm" /> LIVE
+            </span>
+            <span v-else-if="!order.deliveryLocation" class="no-pin-pill">No pin</span>
+          </button>
+          <template v-if="order.deliveryLocation">
+            <button
+              v-if="trackingId !== order.id"
+              class="track-btn"
+              @click="startTracking(order)"
+            >
+              <SignalIcon class="track-icon" />
+              Share Live Location
+            </button>
+            <button
+              v-else
+              class="track-btn active"
+              @click="stopTracking"
+            >
+              <span class="track-pulse" />
+              Stop Sharing ({{ trackingFix }})
+            </button>
+          </template>
+          <span v-if="order.driverLocation" class="track-status">
+            <MapPinIcon class="meta-icon" />
+            Last update: {{ formatRelative(order.driverLocationUpdatedAt) }}
+          </span>
+        </div>
       </div>
     </div>
     <div v-else class="empty-state">
       <p>No {{ filter !== 'all' ? filter : '' }} orders</p>
     </div>
+
+    <!-- Map modal -->
+    <teleport to="body">
+      <div v-if="mapOrder" class="map-overlay" @click.self="closeMap">
+        <div class="map-modal">
+
+          <div class="map-modal-header">
+            <div class="map-modal-title">
+              <MapIcon class="map-modal-title-icon" />
+              <div>
+                <div class="map-modal-h">Delivery Location</div>
+                <div class="map-modal-sub">
+                  Order #{{ mapOrder.id.slice(-8).toUpperCase() }} ·
+                  {{ mapOrder.userName }}
+                </div>
+              </div>
+            </div>
+            <button class="map-close" @click="closeMap" aria-label="Close">
+              <XMarkIcon class="map-close-icon" />
+            </button>
+          </div>
+
+          <div class="map-modal-body">
+            <div v-if="!mapOrder.deliveryLocation && !pickDeliveryMode" class="no-pin-banner">
+              <ExclamationTriangleIcon class="no-pin-icon" />
+              <div>
+                <div class="no-pin-title">No delivery pin saved</div>
+                <div class="no-pin-sub">
+                  Customer didn't pin a location. You can set it manually based on the address:
+                  <strong>{{ mapOrder.address || '—' }}</strong>
+                </div>
+              </div>
+              <button class="no-pin-btn" @click="startPickDelivery">
+                <MapPinIcon class="map-action-icon" /> Set Delivery Pin
+              </button>
+            </div>
+            <DeliveryMap
+              :store-location="storePoint"
+              :delivery-location="mapOrder.deliveryLocation"
+              :driver-location="mapOrder.driverLocation"
+              :driver-picker="manualMode"
+              :picker="pickDeliveryMode"
+              :initial-center="storePoint || { lat: 14.5995, lng: 120.9842 }"
+              height="100%"
+              :interactive="true"
+              :auto-fit="true"
+              :show-recenter="true"
+              @pick-driver="onPickDriver"
+              @pick="onPickDelivery"
+            />
+          </div>
+
+          <div class="map-modal-footer">
+
+            <!-- Customer address -->
+            <div class="map-info">
+              <div class="map-info-row">
+                <MapPinIcon class="map-info-icon" />
+                <div>
+                  <div class="map-info-label">Deliver to</div>
+                  <div class="map-info-value">{{ mapOrder.address }}</div>
+                </div>
+              </div>
+              <div class="map-info-row">
+                <PhoneIcon class="map-info-icon" />
+                <div>
+                  <div class="map-info-label">Customer</div>
+                  <div class="map-info-value">{{ mapOrder.userName }} · {{ mapOrder.userPhone }}</div>
+                </div>
+              </div>
+              <div class="map-info-row" v-if="distanceKm !== null">
+                <SignalIcon class="map-info-icon" />
+                <div>
+                  <div class="map-info-label">Distance</div>
+                  <div class="map-info-value">
+                    {{ distanceKm.toFixed(2) }} km · ~{{ etaMin }} min
+                    <span v-if="mapOrder.driverLocation" class="from-tag">from driver</span>
+                    <span v-else class="from-tag">from store</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="map-actions">
+              <button
+                v-if="pickDeliveryMode"
+                class="map-manual-btn active"
+                @click="cancelPickDelivery"
+              >
+                <XMarkIcon class="map-action-icon" />
+                Cancel Pin
+              </button>
+              <button
+                v-else-if="mapOrder.deliveryLocation"
+                class="map-manual-btn"
+                @click="startPickDelivery"
+                title="Re-pin the delivery location"
+              >
+                <MapPinIcon class="map-action-icon" />
+                Edit Delivery Pin
+              </button>
+
+              <template v-if="mapOrder.deliveryLocation && !pickDeliveryMode">
+                <button
+                  class="map-manual-btn"
+                  :class="{ active: manualMode }"
+                  @click="toggleManual(mapOrder)"
+                  :title="manualMode ? 'Click map to place pin' : 'Set driver location manually'"
+                >
+                  <PencilSquareIcon class="map-action-icon" />
+                  {{ manualMode ? 'Tap map to set driver…' : 'Set Driver Manually' }}
+                </button>
+                <a
+                  :href="googleMapsUrl(mapOrder.deliveryLocation)"
+                  target="_blank"
+                  rel="noopener"
+                  class="map-action-link"
+                >
+                  <ArrowTopRightOnSquareIcon class="map-action-icon" />
+                  Google Maps
+                </a>
+                <button
+                  v-if="trackingId !== mapOrder.id"
+                  class="map-share-btn"
+                  @click="startTracking(mapOrder)"
+                >
+                  <SignalIcon class="track-icon" />
+                  Share Live Location
+                </button>
+                <button
+                  v-else
+                  class="map-share-btn active"
+                  @click="stopTracking"
+                >
+                  <span class="track-pulse" />
+                  Stop Sharing ({{ trackingFix }})
+                </button>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+    </teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onBeforeUnmount, onMounted } from 'vue'
 import { useOrderStore } from '@/stores/orders'
+import { useSettingsStore } from '@/stores/settings'
 import { useToastStore } from '@/stores/toast'
+import DeliveryMap from '@/components/DeliveryMap.vue'
 import {
   UserIcon,
   PhoneIcon,
   MapPinIcon,
+  MapIcon,
   CreditCardIcon,
   ChatBubbleLeftIcon,
   ChevronDownIcon,
   CheckIcon,
+  SignalIcon,
+  XMarkIcon,
+  ArrowTopRightOnSquareIcon,
+  PencilSquareIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/vue/24/outline'
 
 const orderStore = useOrderStore()
+const settingsStore = useSettingsStore()
 const toast = useToastStore()
 const filter = ref('all')
 const openDropdown = ref(null)
+
+const mapOrderId = ref(null)
+const mapOrder = computed(() => {
+  if (!mapOrderId.value) return null
+  return orderStore.orders.find(o => o.id === mapOrderId.value) || null
+})
+const storePoint = computed(() => {
+  if (mapOrder.value?.storeLocation?.lat) return mapOrder.value.storeLocation
+  if (settingsStore.store?.lat) return settingsStore.store
+  return null
+})
+
+const manualMode = ref(false)
+const pickDeliveryMode = ref(false)
+
+const openMap = (order) => {
+  mapOrderId.value = order.id
+  manualMode.value = false
+  pickDeliveryMode.value = false
+}
+const closeMap = () => {
+  mapOrderId.value = null
+  manualMode.value = false
+  pickDeliveryMode.value = false
+}
+
+const toggleManual = (order) => {
+  // Manual override conflicts with auto GPS sharing — stop sharing first
+  if (trackingId.value === order.id) {
+    stopTracking()
+  }
+  pickDeliveryMode.value = false
+  manualMode.value = !manualMode.value
+}
+
+const startPickDelivery = () => {
+  manualMode.value = false
+  pickDeliveryMode.value = true
+}
+const cancelPickDelivery = () => {
+  pickDeliveryMode.value = false
+}
+
+const onPickDriver = async ({ lat, lng }) => {
+  if (!mapOrder.value) return
+  try {
+    await orderStore.updateDriverLocation(mapOrder.value.id, lat, lng)
+    toast.success('Driver location set')
+  } catch {
+    toast.error('Failed to update location')
+  }
+}
+
+const onPickDelivery = async ({ lat, lng }) => {
+  if (!mapOrder.value) return
+  try {
+    await orderStore.updateDeliveryLocation(mapOrder.value.id, lat, lng)
+    pickDeliveryMode.value = false
+    toast.success('Delivery pin saved')
+  } catch {
+    toast.error('Failed to save delivery pin')
+  }
+}
+
+const haversine = (a, b) => {
+  if (!a || !b) return null
+  const R = 6371
+  const toRad = (x) => (x * Math.PI) / 180
+  const dLat = toRad(b.lat - a.lat)
+  const dLng = toRad(b.lng - a.lng)
+  const lat1 = toRad(a.lat), lat2 = toRad(b.lat)
+  const h = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2
+  return 2 * R * Math.asin(Math.sqrt(h))
+}
+
+const distanceKm = computed(() => {
+  if (!mapOrder.value?.deliveryLocation) return null
+  const from = mapOrder.value.driverLocation || storePoint.value
+  if (!from) return null
+  return haversine(from, mapOrder.value.deliveryLocation)
+})
+const etaMin = computed(() => {
+  if (distanceKm.value === null) return '—'
+  return Math.max(1, Math.round((distanceKm.value / 25) * 60))
+})
+
+const googleMapsUrl = (loc) =>
+  `https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}`
+
+onMounted(() => settingsStore.fetchStore())
 
 const toggleDropdown = (id) => {
   openDropdown.value = openDropdown.value === id ? null : id
@@ -130,6 +410,75 @@ const formatDate = (d) =>
   new Date(d).toLocaleDateString('en-PH', {
     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
   })
+
+const formatRelative = (d) => {
+  if (!d) return '—'
+  const diff = Date.now() - new Date(d).getTime()
+  const s = Math.floor(diff / 1000)
+  if (s < 5)    return 'just now'
+  if (s < 60)   return `${s}s ago`
+  const m = Math.floor(s / 60)
+  if (m < 60)   return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24)   return `${h}h ago`
+  return new Date(d).toLocaleDateString('en-PH')
+}
+
+const canTrack = (o) =>
+  !['delivered', 'cancelled'].includes(o.status)
+
+const trackingId   = ref(null)
+const trackingFix  = ref('locating...')
+let watchHandle = null
+
+const startTracking = (order) => {
+  if (!navigator.geolocation) {
+    toast.error('Geolocation not supported by this browser')
+    return
+  }
+  if (watchHandle !== null) {
+    navigator.geolocation.clearWatch(watchHandle)
+    watchHandle = null
+  }
+  trackingId.value = order.id
+  trackingFix.value = 'locating...'
+
+  watchHandle = navigator.geolocation.watchPosition(
+    async (pos) => {
+      const { latitude, longitude, accuracy } = pos.coords
+      trackingFix.value = `±${Math.round(accuracy)}m`
+      try {
+        await orderStore.updateDriverLocation(order.id, latitude, longitude)
+      } catch {
+        toast.error('Failed to push location')
+      }
+    },
+    (err) => {
+      toast.error(err.message || 'Location error')
+      stopTracking()
+    },
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+  )
+  toast.success('Live tracking started')
+}
+
+const stopTracking = async () => {
+  if (watchHandle !== null) {
+    navigator.geolocation.clearWatch(watchHandle)
+    watchHandle = null
+  }
+  const id = trackingId.value
+  trackingId.value = null
+  trackingFix.value = 'locating...'
+  if (id) {
+    try { await orderStore.clearDriverLocation(id) } catch {}
+  }
+  toast.success('Stopped sharing location')
+}
+
+onBeforeUnmount(() => {
+  if (watchHandle !== null) navigator.geolocation.clearWatch(watchHandle)
+})
 
 // v-click-outside directive (inline, no plugin needed)
 const vClickOutside = {
@@ -341,6 +690,218 @@ h1 { font-family: 'Playfair Display', serif; font-size: 28px; margin-bottom: 20p
 }
 
 .empty-state { text-align: center; padding: 60px 20px; color: var(--text2); }
+
+/* Live tracking */
+.track-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-top: 12px; padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.track-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 14px; border-radius: 8px;
+  background: rgba(59,130,246,0.1); color: #3b82f6;
+  border: 1px solid rgba(59,130,246,0.3);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: all 0.15s;
+}
+.track-btn:hover { background: rgba(59,130,246,0.18); }
+.track-btn.active {
+  background: rgba(46,204,113,0.1); color: #2ecc71;
+  border-color: rgba(46,204,113,0.3);
+}
+.track-btn.active:hover { background: rgba(239,68,68,0.12); color: #ef4444; border-color: rgba(239,68,68,0.3); }
+.track-icon { width: 14px; height: 14px; }
+.track-pulse {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #2ecc71;
+  box-shadow: 0 0 0 0 rgba(46,204,113,0.7);
+  animation: track-pulse 1.4s infinite;
+}
+@keyframes track-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(46,204,113,0.7); }
+  70%  { box-shadow: 0 0 0 10px rgba(46,204,113,0); }
+  100% { box-shadow: 0 0 0 0 rgba(46,204,113,0); }
+}
+.track-status {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; color: var(--text2);
+}
+
+/* View Map button */
+.map-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 14px; border-radius: 8px;
+  background: rgba(232,70,42,0.1); color: var(--accent2);
+  border: 1px solid rgba(232,70,42,0.3);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: all 0.15s;
+}
+.map-btn:hover { background: rgba(232,70,42,0.18); }
+.live-pill-sm {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: #2ecc71; color: white;
+  padding: 1px 6px; border-radius: 100px;
+  font-size: 9px; font-weight: 800; letter-spacing: 0.08em;
+}
+.live-pill-sm .live-dot-sm {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: white; animation: live-pill-pulse 1.4s infinite;
+}
+.no-pin-pill {
+  background: rgba(245,158,11,0.18); color: #f59e0b;
+  padding: 1px 7px; border-radius: 100px;
+  font-size: 9px; font-weight: 800; letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+@keyframes live-pill-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+
+/* Map modal */
+.map-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.75); backdrop-filter: blur(6px);
+  z-index: 3000;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.map-modal {
+  width: 100%; max-width: 980px; max-height: 92vh;
+  background: var(--bg2, #141414);
+  border: 1px solid var(--border);
+  border-radius: 16px; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.map-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px; border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.map-modal-title { display: flex; align-items: center; gap: 12px; }
+.map-modal-title-icon { width: 22px; height: 22px; color: var(--accent2); }
+.map-modal-h { font-size: 16px; font-weight: 700; color: var(--text); }
+.map-modal-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.map-close {
+  width: 34px; height: 34px; border-radius: 9px;
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text2); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.map-close:hover { color: var(--text); border-color: var(--text2); }
+.map-close-icon { width: 16px; height: 16px; }
+
+.map-modal-body {
+  flex: 1; min-height: 360px;
+  padding: 0; position: relative;
+}
+.map-modal-body :deep(.map-container),
+.map-modal-body :deep(.delivery-map) {
+  border-radius: 0;
+  height: 100% !important;
+  min-height: 360px;
+}
+
+/* No-pin banner inside the map modal */
+.no-pin-banner {
+  position: absolute;
+  top: 12px; left: 12px; right: 12px;
+  z-index: 600;
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 14px; border-radius: 12px;
+  background: rgba(20,20,20,0.95);
+  border: 1px solid rgba(245,158,11,0.4);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+}
+.no-pin-icon { width: 22px; height: 22px; color: #f59e0b; flex-shrink: 0; margin-top: 1px; }
+.no-pin-title { font-size: 13px; font-weight: 700; color: var(--text); }
+.no-pin-sub { font-size: 12px; color: var(--text2); margin-top: 3px; line-height: 1.45; }
+.no-pin-sub strong { color: var(--text); font-weight: 600; }
+.no-pin-banner > div { flex: 1; min-width: 0; }
+.no-pin-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 12px; border-radius: 8px;
+  background: var(--accent); color: white;
+  border: none; font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: opacity 0.15s;
+  flex-shrink: 0; align-self: center;
+}
+.no-pin-btn:hover { opacity: 0.9; }
+
+.map-modal-footer {
+  display: grid; grid-template-columns: 1fr auto; gap: 16px;
+  padding: 14px 20px; border-top: 1px solid var(--border);
+  background: var(--bg3);
+  align-items: center; flex-shrink: 0;
+}
+.map-info {
+  display: flex; flex-wrap: wrap; gap: 12px 22px;
+}
+.map-info-row { display: flex; align-items: flex-start; gap: 8px; }
+.map-info-icon { width: 16px; height: 16px; color: var(--accent2); flex-shrink: 0; margin-top: 2px; }
+.map-info-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text2);
+}
+.map-info-value { font-size: 13px; color: var(--text); font-weight: 600; margin-top: 2px; }
+.from-tag {
+  font-size: 10px; font-weight: 600; color: var(--text2);
+  background: var(--bg); padding: 1px 6px; border-radius: 100px;
+  margin-left: 6px;
+}
+
+.map-actions {
+  display: flex; gap: 8px; align-items: center; flex-shrink: 0;
+}
+.map-action-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 14px; border-radius: 9px;
+  background: var(--bg); border: 1px solid var(--border);
+  color: var(--text2); font-size: 12px; font-weight: 600;
+  text-decoration: none; transition: all 0.15s;
+}
+.map-action-link:hover { color: var(--text); border-color: var(--text2); }
+.map-action-icon { width: 14px; height: 14px; }
+
+.map-manual-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 14px; border-radius: 9px;
+  background: var(--bg); border: 1px solid var(--border);
+  color: var(--text2); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s;
+}
+.map-manual-btn:hover { color: var(--text); border-color: var(--text2); }
+.map-manual-btn.active {
+  background: rgba(232,70,42,0.12);
+  border-color: rgba(232,70,42,0.4);
+  color: var(--accent2);
+}
+.map-share-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 14px; border-radius: 9px;
+  background: rgba(59,130,246,0.12); color: #3b82f6;
+  border: 1px solid rgba(59,130,246,0.3);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: all 0.15s;
+}
+.map-share-btn:hover { background: rgba(59,130,246,0.2); }
+.map-share-btn.active {
+  background: rgba(46,204,113,0.12); color: #2ecc71;
+  border-color: rgba(46,204,113,0.3);
+}
+.map-share-btn.active:hover {
+  background: rgba(239,68,68,0.12); color: #ef4444;
+  border-color: rgba(239,68,68,0.3);
+}
+
+@media (max-width: 700px) {
+  .map-modal-footer { grid-template-columns: 1fr; }
+  .map-actions { width: 100%; flex-wrap: wrap; }
+  .map-action-link, .map-share-btn { flex: 1; justify-content: center; }
+}
 
 /* ── Tablet: 640px+ → 2 columns ── */
 @media (min-width: 640px) {
