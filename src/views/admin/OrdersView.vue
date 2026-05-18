@@ -1,6 +1,18 @@
 <template>
   <div class="admin-orders">
     <h1>Orders Management</h1>
+
+    <div class="tab-row">
+      <button class="tab-btn" :class="{ active: tab === 'active' }" @click="switchTab('active')">
+        <BellAlertIcon class="tab-icon" /> Active
+        <span class="tab-count">{{ activeTotal }}</span>
+      </button>
+      <button class="tab-btn" :class="{ active: tab === 'history' }" @click="switchTab('history')">
+        <ClockIcon class="tab-icon" /> History
+        <span class="tab-count">{{ historyTotal }}</span>
+      </button>
+    </div>
+
     <div class="orders-filter">
       <button v-for="s in statuses" :key="s.value"
         class="filter-btn" :class="{ active: filter === s.value }"
@@ -107,7 +119,9 @@
       </div>
     </div>
     <div v-else class="empty-state">
-      <p>No {{ filter !== 'all' ? filter : '' }} orders</p>
+      <p v-if="filter !== 'all'">No {{ filter }} orders</p>
+      <p v-else-if="tab === 'history'">No order history yet</p>
+      <p v-else>No active orders</p>
     </div>
 
     <!-- Map modal -->
@@ -276,6 +290,8 @@ import {
   ArrowTopRightOnSquareIcon,
   PencilSquareIcon,
   ExclamationTriangleIcon,
+  ClockIcon,
+  BellAlertIcon,
 } from '@heroicons/vue/24/outline'
 
 const orderStore = useOrderStore()
@@ -390,21 +406,41 @@ const selectStatus = async (id, status) => {
   }
 }
 
-const statuses = [
+const tab = ref('active') // 'active' | 'history'
+
+const HISTORY_STATUSES = ['delivered', 'cancelled']
+const ACTIVE_STATUSES  = ['pending', 'confirmed', 'preparing', 'ready']
+
+const ACTIVE_FILTERS = [
   { value: 'all',       label: 'All' },
   { value: 'pending',   label: 'Pending' },
   { value: 'confirmed', label: 'Confirmed' },
   { value: 'preparing', label: 'Preparing' },
   { value: 'ready',     label: 'Ready' },
-  { value: 'delivered', label: 'Delivered' },
 ]
+const HISTORY_FILTERS = [
+  { value: 'all',       label: 'All' },
+  { value: 'delivered', label: 'Delivered' },
+  { value: 'cancelled', label: 'Cancelled' },
+]
+
+const statuses = computed(() => tab.value === 'history' ? HISTORY_FILTERS : ACTIVE_FILTERS)
 const statusOptions = ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled']
 
-const filteredOrders = computed(() =>
-  filter.value === 'all'
-    ? orderStore.orders
-    : orderStore.orders.filter(o => o.status === filter.value)
-)
+const switchTab = (t) => {
+  tab.value = t
+  filter.value = 'all'
+}
+
+const activeTotal  = computed(() => orderStore.orders.filter(o => ACTIVE_STATUSES.includes(o.status)).length)
+const historyTotal = computed(() => orderStore.orders.filter(o => HISTORY_STATUSES.includes(o.status)).length)
+
+const filteredOrders = computed(() => {
+  const scope = tab.value === 'history' ? HISTORY_STATUSES : ACTIVE_STATUSES
+  return orderStore.orders.filter(o =>
+    scope.includes(o.status) && (filter.value === 'all' || o.status === filter.value)
+  )
+})
 
 const formatDate = (d) =>
   new Date(d).toLocaleDateString('en-PH', {
@@ -496,6 +532,41 @@ const vClickOutside = {
 /* ── Base layout ── */
 .admin-orders { max-width: 1200px; padding: 0 16px; }
 h1 { font-family: 'Playfair Display', serif; font-size: 28px; margin-bottom: 20px; }
+
+/* ── Active / History tabs ── */
+.tab-row {
+  display: inline-flex;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+.tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text2);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.tab-btn.active { background: var(--accent); color: white; }
+.tab-btn:not(.active):hover { background: var(--border); color: var(--text); }
+.tab-icon { width: 15px; height: 15px; }
+.tab-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 6px;
+  border-radius: 100px; font-size: 11px; font-weight: 700;
+  background: rgba(255,255,255,0.2);
+}
+.tab-btn:not(.active) .tab-count { background: var(--border); color: var(--text2); }
 
 /* ── Filter bar — horizontally scrollable on mobile ── */
 .orders-filter {

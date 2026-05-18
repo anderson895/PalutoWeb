@@ -13,6 +13,17 @@
       </div>
     </div>
 
+    <div class="history-toggle-group">
+      <button class="toggle-btn" :class="{ active: tab === 'active' }" @click="tab = 'active'">
+        <BellAlertIcon class="toggle-icon" /> Active
+        <span v-if="activeCount" class="count-pill">{{ activeCount }}</span>
+      </button>
+      <button class="toggle-btn" :class="{ active: tab === 'history' }" @click="tab = 'history'">
+        <ClockIcon class="toggle-icon" /> History
+        <span v-if="historyCount" class="count-pill">{{ historyCount }}</span>
+      </button>
+    </div>
+
     <div v-if="orderStore.loading" class="loading-overlay"><div class="spinner"></div></div>
 
     <div v-else-if="displayOrders.length" class="orders-list">
@@ -89,11 +100,11 @@
 
     <div v-else class="empty-orders">
       <div class="empty-icon-wrap">
-        <component :is="viewMode === 'all' ? ClipboardDocumentListIcon : ShoppingCartIcon" class="empty-svg" />
+        <component :is="tab === 'history' ? ClockIcon : (viewMode === 'all' ? ClipboardDocumentListIcon : ShoppingCartIcon)" class="empty-svg" />
       </div>
-      <h3>{{ viewMode === 'all' ? 'No orders in the system yet' : 'You have no orders yet' }}</h3>
-      <p>{{ viewMode === 'all' ? 'Orders will appear here once customers start ordering.' : 'Start ordering delicious Filipino food!' }}</p>
-      <router-link v-if="viewMode === 'my'" to="/menu" class="btn btn-primary">
+      <h3>{{ emptyTitle }}</h3>
+      <p>{{ emptyBody }}</p>
+      <router-link v-if="tab === 'active' && viewMode === 'my'" to="/menu" class="btn btn-primary">
         <SparklesIcon class="btn-icon" /> Browse Menu
       </router-link>
     </div>
@@ -132,10 +143,38 @@ const orderStore = useOrderStore()
 const toast      = useToastStore()
 
 const viewMode = ref('my')
+const tab = ref('active') // 'active' | 'history'
 
-const displayOrders = computed(() =>
+const HISTORY_STATUSES = ['delivered', 'cancelled']
+const isHistory = (o) => HISTORY_STATUSES.includes(o.status)
+
+const sourceOrders = computed(() =>
   viewMode.value === 'my' ? orderStore.myOrders : orderStore.orders
 )
+
+const activeCount  = computed(() => sourceOrders.value.filter((o) => !isHistory(o)).length)
+const historyCount = computed(() => sourceOrders.value.filter(isHistory).length)
+
+const displayOrders = computed(() =>
+  sourceOrders.value.filter((o) => tab.value === 'history' ? isHistory(o) : !isHistory(o))
+)
+
+const emptyTitle = computed(() => {
+  if (tab.value === 'history') {
+    return viewMode.value === 'all' ? 'No order history yet' : 'No past orders yet'
+  }
+  return viewMode.value === 'all' ? 'No active orders' : 'You have no active orders'
+})
+const emptyBody = computed(() => {
+  if (tab.value === 'history') {
+    return viewMode.value === 'all'
+      ? 'Completed and cancelled orders will appear here.'
+      : 'Your completed and cancelled orders will show up here.'
+  }
+  return viewMode.value === 'all'
+    ? 'New orders will appear here as customers place them.'
+    : 'Start ordering delicious Filipino food!'
+})
 
 const switchMode = async (mode) => {
   viewMode.value = mode
@@ -192,10 +231,12 @@ onMounted(() => orderStore.fetchMyOrders(auth.user.uid))
 h1 { font-family: 'Playfair Display', serif; font-size: 36px; font-weight: 900; }
 
 /* Toggle */
-.view-toggle-group {
+.view-toggle-group,
+.history-toggle-group {
   display: flex; background: var(--bg3); border: 1px solid var(--border);
   border-radius: 12px; padding: 4px; gap: 4px;
 }
+.history-toggle-group { margin-bottom: 20px; align-self: flex-start; }
 .toggle-btn {
   display: flex; align-items: center; gap: 6px;
   padding: 8px 18px; border-radius: 8px; border: none;
@@ -205,6 +246,15 @@ h1 { font-family: 'Playfair Display', serif; font-size: 36px; font-weight: 900; 
 .toggle-btn.active { background: var(--accent); color: white; }
 .toggle-btn:not(.active):hover { background: var(--border); color: var(--text); }
 .toggle-icon { width: 15px; height: 15px; }
+.count-pill {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 6px;
+  border-radius: 100px; font-size: 11px; font-weight: 700;
+  background: rgba(255,255,255,0.2);
+}
+.toggle-btn:not(.active) .count-pill {
+  background: var(--border); color: var(--text2);
+}
 
 .orders-list { display: flex; flex-direction: column; gap: 16px; }
 .order-card { padding: 20px; }
