@@ -51,6 +51,10 @@ let driverMarker = null
 let routeLine = null
 let pickerMarker = null
 
+// Cached route to avoid re-querying OSRM on every minor update
+let lastRouteKey = null    // "from.lat,from.lng->to.lat,to.lng" at low precision
+let routeFetchSeq = 0      // monotonic id to ignore stale fetches
+
 // Animation state for driver
 let driverAnim = null
 
@@ -157,6 +161,73 @@ const animateMarker = (marker, fromLatLng, toLatLng, duration = 800) => {
 
 let hasFittedOnce = false
 
+/* Draw or update the route polyline. Falls back to a straight dashed line
+   while we fetch the road-following geometry from OSRM. */
+const drawRoute = (latlngs, { dashed = false } = {}) => {
+  if (!map) return
+  if (routeLine) {
+    routeLine.setLatLngs(latlngs)
+    routeLine.setStyle({
+      color: '#e8462a',
+      weight: 5,
+      opacity: 0.85,
+      dashArray: dashed ? '8 8' : null,
+      lineJoin: 'round',
+      lineCap: 'round',
+    })
+  } else {
+    routeLine = L.polyline(latlngs, {
+      color: '#e8462a',
+      weight: 5,
+      opacity: 0.85,
+      dashArray: dashed ? '8 8' : null,
+      lineJoin: 'round',
+      lineCap: 'round',
+    }).addTo(map)
+  }
+}
+
+/* Round to ~30m precision so trivial driver-location wobble doesn't refetch. */
+const routeKey = (from, to) => {
+  const r = (n) => n.toFixed(4)
+  return `${r(from.lat)},${r(from.lng)}->${r(to.lat)},${r(to.lng)}`
+}
+
+const fetchRoadRoute = async (from, to) => {
+  const url = `https://router.project-osrm.org/route/v1/driving/`
+    + `${from.lng},${from.lat};${to.lng},${to.lat}`
+    + `?overview=full&geometries=geojson`
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`OSRM ${res.status}`)
+  const data = await res.json()
+  const coords = data?.routes?.[0]?.geometry?.coordinates
+  if (!coords?.length) throw new Error('No route geometry')
+  // GeoJSON is [lng, lat] — Leaflet wants [lat, lng]
+  return coords.map(([lng, lat]) => [lat, lng])
+}
+
+const updateRoute = (from, to) => {
+  const key = routeKey(from, to)
+  if (key === lastRouteKey && routeLine) return // already drawn for this pair
+
+  // Show straight dashed line immediately as a placeholder while OSRM responds
+  if (!routeLine) drawRoute([[from.lat, from.lng], [to.lat, to.lng]], { dashed: true })
+
+  lastRouteKey = key
+  const seq = ++routeFetchSeq
+  fetchRoadRoute(from, to)
+    .then((latlngs) => {
+      // Ignore stale responses (a newer fetch has started)
+      if (seq !== routeFetchSeq) return
+      drawRoute(latlngs, { dashed: false })
+    })
+    .catch(() => {
+      // Fall back to straight dashed line on failure
+      if (seq !== routeFetchSeq) return
+      drawRoute([[from.lat, from.lng], [to.lat, to.lng]], { dashed: true })
+    })
+}
+
 const refreshLayers = (isInit = false) => {
   if (!map) return
 
@@ -198,13 +269,10 @@ const refreshLayers = (isInit = false) => {
   const from = props.driverLocation || props.storeLocation
   const to   = props.deliveryLocation
   if (from && to) {
-    const latlngs = [[from.lat, from.lng], [to.lat, to.lng]]
-    if (routeLine) routeLine.setLatLngs(latlngs)
-    else routeLine = L.polyline(latlngs, {
-      color: '#e8462a', weight: 4, opacity: 0.75, dashArray: '8 8',
-    }).addTo(map)
+    updateRoute(from, to)
   } else if (routeLine) {
     routeLine.remove(); routeLine = null
+    lastRouteKey = null
   }
 
   // Auto-fit ONCE on initial setup (or when no fit has happened yet).

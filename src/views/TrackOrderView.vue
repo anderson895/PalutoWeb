@@ -76,6 +76,19 @@
           <div class="row"><span>Payment</span><span>{{ order.payment?.toUpperCase() }}</span></div>
         </div>
 
+        <!-- Items list -->
+        <div class="section" v-if="order.items?.length">
+          <div class="section-title">Items</div>
+          <div class="order-items">
+            <div v-for="item in order.items" :key="item.id" class="order-item">
+              <img :src="item.image || 'https://via.placeholder.com/40?text=F'" :alt="item.name" />
+              <span class="order-item-name">{{ item.name }}</span>
+              <span class="order-item-qty">x{{ item.qty }}</span>
+              <span class="order-item-price">₱{{ (item.price * item.qty).toFixed(2) }}</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Delivery -->
         <div class="section">
           <div class="section-title">Delivery to</div>
@@ -340,6 +353,18 @@ onBeforeUnmount(() => {
 }
 .row span:last-child { color: var(--text); font-weight: 600; }
 .mono { font-family: monospace; letter-spacing: 0.05em; }
+
+/* Items list */
+.order-items { display: flex; flex-direction: column; gap: 8px; }
+.order-item { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.order-item img {
+  width: 36px; height: 36px; border-radius: 6px;
+  object-fit: cover; flex-shrink: 0;
+  background: var(--bg3);
+}
+.order-item-name { flex: 1; color: var(--text); font-weight: 500; }
+.order-item-qty { color: var(--text2); font-size: 12px; }
+.order-item-price { font-weight: 600; color: var(--accent2); }
 
 .address {
   display: flex; align-items: flex-start; gap: 8px;
